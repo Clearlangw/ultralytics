@@ -122,15 +122,38 @@ class DetectionTrainer(BaseTrainer):
 
     def plot_training_samples(self, batch, ni):
         """Plots training samples with their annotations."""
-        plot_images(
-            images=batch["img"],
-            batch_idx=batch["batch_idx"],
-            cls=batch["cls"].squeeze(-1),
-            bboxes=batch["bboxes"],
-            paths=batch["im_file"],
-            fname=self.save_dir / f"train_batch{ni}.jpg",
-            on_plot=self.on_plot,
-        )
+        # plot_images(
+        #     images=batch["img"],
+        #     batch_idx=batch["batch_idx"],
+        #     cls=batch["cls"].squeeze(-1),
+        #     bboxes=batch["bboxes"],
+        #     paths=batch["im_file"],
+        #     fname=self.save_dir / f"train_batch{ni}.jpg",
+        #     on_plot=self.on_plot,
+        # )
+        ch = batch["img"].size(1)
+        if ch == 1 or ch == 3:
+            ch_split_list = [ch]
+        elif ch == 2:
+            ch_split_list = [1, 1]
+        else:
+            ch_split_list = [3] + [1] * (ch - 3)
+
+        images_list = batch["img"].split(ch_split_list, dim=1)
+        if len(ch_split_list) == 1:
+            fname_list = [self.save_dir / f"train_batch{ni}.jpg"]
+        else:
+            fname_list = [self.save_dir / f"train_batch{ni}_{idx}.jpg" for idx, _ in enumerate(ch_split_list)]
+        for images, fname in zip(images_list, fname_list):
+            plot_images(
+                images=images,
+                batch_idx=batch["batch_idx"],
+                cls=batch["cls"].squeeze(-1),
+                bboxes=batch["bboxes"],
+                paths=batch["im_file"],
+                fname=fname,
+                on_plot=self.on_plot,
+            )
 
     def plot_metrics(self):
         """Plots metrics from a CSV file."""

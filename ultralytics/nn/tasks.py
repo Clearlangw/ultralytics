@@ -83,6 +83,8 @@ from ultralytics.utils.torch_utils import (
     scale_img,
     time_sync,
 )
+from ultralytics.nn.mymodules import *
+from ultralytics.nn.mymodules import parse_args_method as parse_extend_module_args
 
 try:
     import thop
@@ -333,7 +335,11 @@ class DetectionModel(BaseModel):
                     return self.forward(x)["one2many"]
                 return self.forward(x)[0] if isinstance(m, (Segment, Pose, OBB)) else self.forward(x)
 
-            m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
+            raw_device = next(self.parameters()).device
+            self.to('cuda')
+            m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s).to('cuda'))])  # forward
+            self.to(raw_device)
+            # m.stride = torch.tensor([s / x.shape[-2] for x in _forward(torch.zeros(1, ch, s, s))])  # forward
             self.stride = m.stride
             m.bias_init()  # only run once
         else:
@@ -1030,7 +1036,8 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
                 n = 1
             if m is C3k2:  # for M/L/X sizes
                 legacy = False
-                if scale in "mlx":
+                if scale in "mlxh":
+                # if scale in "mlx":
                     args[3] = True
         elif m is AIFI:
             args = [ch[f], *args]
@@ -1060,6 +1067,8 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             args = [c1, c2, *args[1:]]
         elif m is CBFuse:
             c2 = ch[f[-1]]
+        elif m in parse_extend_module_args.keys():
+            c1, c2, n, args = parse_extend_module_args[m](ch, f, n, m, args)
         else:
             c2 = ch[f]
 
